@@ -1,0 +1,1 @@
+{ "rewrites": [{ "source": "/((?!assets|icons|sw.js|workbox-|manifest.webmanifest|favicon.svg|apple-touch-icon.png).*)", "destination": "/index.html" }] }
