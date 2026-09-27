@@ -2,8 +2,9 @@
 // balances are always derived as  initial_balance + Σ(effects of live transactions).
 // All numbers are integer minor units.
 import { isLiabilityType } from './defaults.js';
+import { addDays, endOfMonth, rangeFor, shiftMonth, startOfMonth, toLocalDate } from '../lib/dates.js';
 
-export const TX_TYPES = ['income', 'expense', 'transfer', 'adjustment', 'refund'];
+export const TX_TYPES = ['income', 'expense', 'transfer', 'adjustment', 'refund', 'debt'];
 
 const live = (t) => !t.deleted_at && !t.purged_at;
 
@@ -21,6 +22,7 @@ export function effectOn(tx, accountId) {
       if (tx.to_account_id === accountId) return tx.amount;
       return 0;
     case 'adjustment':
+    case 'debt':
       return tx.account_id === accountId ? (tx.direction === 'out' ? -tx.amount : tx.amount) : 0;
     default:
       return 0;
@@ -37,7 +39,7 @@ export function computeBalances(accounts, txs) {
       case 'income': case 'refund': add(t.account_id, t.amount); break;
       case 'expense': add(t.account_id, -t.amount); break;
       case 'transfer': add(t.account_id, -t.amount); add(t.to_account_id, t.amount); break;
-      case 'adjustment': add(t.account_id, t.direction === 'out' ? -t.amount : t.amount); break;
+      case 'adjustment': case 'debt': add(t.account_id, t.direction === 'out' ? -t.amount : t.amount); break;
     }
   }
   return bal;
@@ -49,7 +51,7 @@ export function computeBalances(accounts, txs) {
  *  owed      = what you owe on liability accounts (positive number)
  *  netWorth  = assets − liabilities
  */
-export function computeTotals(accounts, balances) {
+export function computeTotals(accounts, balances, debtTotals = { receivable: 0, payable: 0 }) {
   let assets = 0, liabilities = 0, cash = 0;
   for (const a of accounts) {
     if (a.deleted_at) continue;
@@ -61,7 +63,9 @@ export function computeTotals(accounts, balances) {
       if (a.include_in_total !== false && !a.archived_at) cash += b;
     }
   }
-  return { assets, liabilities, cash, netWorth: assets - liabilities };
+  // Money others owe you is still yours (an asset); what you owe is a liability.
+  const receivable = debtTotals.receivable || 0, payable = debtTotals.payable || 0;
+  return { assets, liabilities, cash, receivable, payable, netWorth: assets + receivable - liabilities - payable };
 }
 
 /**
@@ -70,7 +74,7 @@ export function computeTotals(accounts, balances) {
  * Adjustments are reported separately (they are corrections, not earnings/spending).
  */
 export function summarize(txs, { from = '0000-01-01', to = '9999-12-31', accountId = null } = {}) {
-  let income = 0, spent = 0, refunds = 0, transferIn = 0, transferOut = 0, adjustIn = 0, adjustOut = 0, count = 0;
+  let income = 0, spent = 0, refunds = 0, transferIn = 0, transferOut = 0, adjustIn = 0, adjustOut = 0, debtIn = 0, debtOut = 0, count = 0;
   const byCategory = new Map();
   const byIncomeCategory = new Map();
   for (const t of txs) {
@@ -99,10 +103,13 @@ export function summarize(txs, { from = '0000-01-01', to = '9999-12-31', account
       case 'adjustment':
         if (t.direction === 'out') adjustOut += t.amount; else adjustIn += t.amount;
         break;
+      case 'debt': // lending/borrowing/repayments move money but are never income or expense
+        if (t.direction === 'out') debtOut += t.amount; else debtIn += t.amount;
+        break;
     }
   }
   const expenses = spent - refunds;
-  return { income, expenses, spent, refunds, net: income - expenses, transferIn, transferOut, adjustIn, adjustOut, count, byCategory, byIncomeCategory };
+  return { income, expenses, spent, refunds, net: income - expenses, transferIn, transferOut, adjustIn, adjustOut, debtIn, debtOut, count, byCategory, byIncomeCategory };
 }
 
 /** Account statement between two dates. closing = opening + all effects in range. */
@@ -131,4 +138,114 @@ export function dailySeries(txs, from, to) {
     days.set(t.date, d);
   }
   return [...days.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+
+// ============================ Budgets ============================
+
+/** The period (inclusive local dates) that `date` falls in for this budget. */
+export function budgetPeriod(budget, date = toLocalDate()) {
+  if (budget.period === 'custom') return { from: budget.start_date, to: budget.end_date };
+  if (budget.period === 'weekly') return rangeFor('week', date);
+  return { from: startOfMonth(date), to: endOfMonth(date) };
+}
+function previousPeriod(budget, p) {
+  if (budget.period === 'weekly') return { from: addDays(p.from, -7), to: addDays(p.from, -1) };
+  const from = shiftMonth(p.from, -1);
+  return { from, to: endOfMonth(from) };
+}
+
+/** Category ids covered by a budget, including subcategories of the chosen parents. */
+export function budgetCategorySet(budget, categories) {
+  if (budget.scope !== 'category') return null;
+  const set = new Set(budget.category_ids || []);
+  for (const c of categories) if (c.parent_id && set.has(c.parent_id)) set.add(c.id);
+  return set;
+}
+
+/** Spending (expenses − refunds) that counts against a budget in a date range. */
+export function budgetSpent(budget, txs, categories, from, to) {
+  const set = budgetCategorySet(budget, categories);
+  let spent = 0;
+  for (const t of txs) {
+    if (!live(t) || t.date < from || t.date > to) continue;
+    if (t.type !== 'expense' && t.type !== 'refund') continue;
+    if (set && !set.has(t.category_id)) continue;
+    if (t.type === 'refund' && !t.category_id) continue;
+    spent += t.type === 'expense' ? t.amount : -t.amount;
+  }
+  return spent;
+}
+
+/**
+ * Full status of a budget for the period containing `today`.
+ * Rollover: unused money from each previous period (since the budget started) carries forward.
+ * Overspending is NOT carried as a penalty — each period starts at its base amount at minimum.
+ */
+export function budgetStatus(budget, txs, categories, today = toLocalDate()) {
+  const period = budgetPeriod(budget, today);
+  let carried = 0;
+  if (budget.rollover && budget.period !== 'custom') {
+    const chain = [];
+    let p = previousPeriod(budget, period);
+    const startPeriod = budgetPeriod(budget, budget.start_date);
+    for (let i = 0; i < 120 && p.to >= startPeriod.from; i++) { chain.unshift(p); p = previousPeriod(budget, p); }
+    for (const q of chain) {
+      const available = budget.amount + carried;
+      carried = Math.max(0, available - budgetSpent(budget, txs, categories, q.from, q.to));
+    }
+  }
+  const limit = budget.amount + carried;
+  const spent = budgetSpent(budget, txs, categories, period.from, period.to);
+  const remaining = limit - spent;
+  const pct = limit > 0 ? (spent * 100) / limit : 0;
+  const alertAt = budget.alert_at || 80;
+  let level = 'ok';
+  if (spent > limit) level = 'exceeded';
+  else if (spent === limit && limit > 0) level = 'reached';
+  else if (pct >= alertAt) level = 'warning';
+  return { period, limit, carried, spent, remaining, pct, level };
+}
+
+export function budgetMessage(budget, st, fmt) {
+  const name = budget.name;
+  switch (st.level) {
+    case 'exceeded': return `Your ${name} budget has been exceeded by ${fmt(-st.remaining)}.`;
+    case 'reached': return `Your ${name} budget has been reached.`;
+    case 'warning': return `You're approaching your ${name} budget — ${fmt(st.remaining)} left.`;
+    default: return `${fmt(st.remaining)} left to spend.`;
+  }
+}
+
+// ============================ Debts (utang) ============================
+/**
+ * Status of one debt, derived from its payment transactions.
+ * remaining = amount − Σ live payments − forgiven_amount
+ */
+export function debtStatus(debt, txs, today = toLocalDate()) {
+  const payments = txs.filter((t) => t.debt_id === debt.id && t.debt_role === 'payment' && live(t))
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+  const paid = payments.reduce((s, t) => s + t.amount, 0);
+  const forgiven = debt.forgiven_amount || 0;
+  const remaining = Math.max(0, debt.amount - paid - forgiven);
+  let status;
+  if (remaining === 0) status = forgiven > 0 ? 'forgiven' : 'paid';
+  else if (debt.due_date && debt.due_date < today) status = 'overdue';
+  else if (paid > 0) status = 'partial';
+  else status = 'unpaid';
+  const lastPayment = payments.at(-1)?.date || null;
+  return { paid, forgiven, remaining, status, payments, lastPayment, pct: debt.amount ? Math.min(100, ((paid + forgiven) * 100) / debt.amount) : 0 };
+}
+
+/** Totals across all live debts: what others owe you and what you owe. */
+export function debtTotals(debts, txs, today = toLocalDate()) {
+  let receivable = 0, payable = 0, overdue = 0, people = new Set();
+  for (const d of debts) {
+    if (d.deleted_at) continue;
+    const st = debtStatus(d, txs, today);
+    if (d.direction === 'owed_to_me') { receivable += st.remaining; if (st.remaining) people.add(d.person_id); }
+    else payable += st.remaining;
+    if (st.status === 'overdue') overdue++;
+  }
+  return { receivable, payable, overdue, peopleOwing: people.size };
 }

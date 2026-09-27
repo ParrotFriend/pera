@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db.js';
 import { useApp } from '../services/app.jsx';
-import { computeBalances, computeTotals } from '../services/calc.js';
+import { computeBalances, computeTotals, debtTotals } from '../services/calc.js';
 
 const EMPTY = [];
 
@@ -42,22 +42,43 @@ export function useLedger() {
 export function useBalances() {
   const accounts = useAccounts();
   const txs = useLedger();
+  const debts = useDebts();
   return useMemo(() => {
-    if (!accounts || !txs) return undefined;
+    if (!accounts || !txs || !debts) return undefined;
     const balances = computeBalances(accounts, txs);
-    return { accounts, txs, balances, totals: computeTotals(accounts, balances) };
-  }, [accounts, txs]);
+    return { accounts, txs, debts, balances, totals: computeTotals(accounts, balances, debtTotals(debts, txs)) };
+  }, [accounts, txs, debts]);
+}
+
+export function useBudgets() {
+  const { user } = useApp();
+  return useLiveQuery(() => (user ? db.budgets.where('user_id').equals(user.id).filter((b) => !b.deleted_at).toArray() : []), [user?.id]);
+}
+
+export function useDebts() {
+  const { user } = useApp();
+  return useLiveQuery(() => (user ? db.debts.where('user_id').equals(user.id).filter((d) => !d.deleted_at).toArray() : []), [user?.id]);
+}
+
+export function usePeople() {
+  const { user } = useApp();
+  const rows = useLiveQuery(() => (user ? db.people.where('user_id').equals(user.id).filter((p) => !p.deleted_at).toArray() : []), [user?.id]);
+  return useMemo(() => (rows ? new Map(rows.map((p) => [p.id, p])) : undefined), [rows]);
 }
 
 export function useTrash() {
   const { user } = useApp();
   return useLiveQuery(async () => {
     if (!user) return EMPTY;
-    const [tx, acc] = await Promise.all([
+    const [tx, acc, debts] = await Promise.all([
       db.transactions.where('user_id').equals(user.id).filter((t) => !!t.deleted_at && !t.purged_at).toArray(),
-      db.accounts.where('user_id').equals(user.id).filter((a) => !!a.deleted_at).toArray()
+      db.accounts.where('user_id').equals(user.id).filter((a) => !!a.deleted_at).toArray(),
+      db.debts.where('user_id').equals(user.id).filter((d) => !!d.deleted_at).toArray()
     ]);
-    return [...tx.map((t) => ({ kind: 'transaction', item: t })), ...acc.map((a) => ({ kind: 'account', item: a }))]
+    // Movements trashed together with a debt are restored through the debt, not one by one.
+    const debtTrash = new Set(debts.map((d) => `${d.id}|${d.deleted_at}`));
+    const loose = tx.filter((t) => !(t.debt_id && debtTrash.has(`${t.debt_id}|${t.deleted_at}`)));
+    return [...loose.map((t) => ({ kind: 'transaction', item: t })), ...acc.map((a) => ({ kind: 'account', item: a })), ...debts.map((d) => ({ kind: 'debt', item: d }))]
       .sort((a, b) => b.item.deleted_at.localeCompare(a.item.deleted_at));
   }, [user?.id]);
 }

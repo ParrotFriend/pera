@@ -10,6 +10,8 @@ import AccountDetail from './pages/AccountDetail.jsx';
 
 // Less-used screens are split into separate chunks (all precached for offline use).
 const Categories = lazy(() => import('./pages/Categories.jsx'));
+const Budgets = lazy(() => import('./pages/Budgets.jsx'));
+const Debts = lazy(() => import('./pages/Debts.jsx'));
 const Trash = lazy(() => import('./pages/Trash.jsx'));
 const Activity = lazy(() => import('./pages/Activity.jsx'));
 const Settings = lazy(() => import('./pages/Settings.jsx'));
@@ -31,6 +33,8 @@ function Gate() {
           <Route path="transactions" element={<Transactions />} />
           <Route path="accounts" element={<Accounts />} />
           <Route path="accounts/:id" element={<AccountDetail />} />
+          <Route path="budgets" element={<Budgets />} />
+          <Route path="utang" element={<Debts />} />
           <Route path="categories" element={<Categories />} />
           <Route path="trash" element={<Trash />} />
           <Route path="activity" element={<Activity />} />

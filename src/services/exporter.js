@@ -30,7 +30,7 @@ export async function exportTransactionsCsv(txs, { accounts, cats }) {
   download(`pera-transactions-${new Date().toISOString().slice(0, 10)}.csv`, csv, 'text/csv;charset=utf-8');
 }
 
-const BACKUP_TABLES = ['accounts', 'categories', 'transactions', 'audit_logs'];
+const BACKUP_TABLES = ['accounts', 'categories', 'people', 'debts', 'budgets', 'transactions', 'audit_logs'];
 const strip = ({ sync_status, synced_at, ...rest }) => rest;
 
 /** Full backup of this user's data as JSON (restorable). */
@@ -54,6 +54,7 @@ export async function readBackup(file) {
     if (!Array.isArray(json.data[t] || [])) throw new Error('This backup file is damaged.');
     for (const r of json.data[t] || []) {
       if (typeof r.id !== 'string') throw new Error('This backup file is damaged.');
+      if ((t === 'debts' || t === 'budgets') && (!Number.isSafeInteger(r.amount) || r.amount <= 0)) throw new Error('This backup contains an invalid amount.');
       if (t === 'transactions' && (!Number.isSafeInteger(r.amount) || r.amount <= 0)) throw new Error('This backup contains an invalid amount.');
       if (t === 'accounts' && !Number.isSafeInteger(r.initial_balance)) throw new Error('This backup contains an invalid balance.');
     }
@@ -82,7 +83,7 @@ export async function readBackup(file) {
 export async function restoreBackup(json) {
   const { userId } = getActor();
   const now = nowIso();
-  await db.transaction('rw', [db.accounts, db.categories, db.transactions, db.audit_logs, db.outbox], async () => {
+  await db.transaction('rw', [db.accounts, db.categories, db.people, db.debts, db.budgets, db.transactions, db.audit_logs, db.outbox], async () => {
     for (const t of BACKUP_TABLES) {
       for (const r of json.data[t] || []) {
         const cur = await db[t].get(r.id);

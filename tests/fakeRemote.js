@@ -1,6 +1,6 @@
 // In-memory stand-in for Supabase that mimics the server triggers (version bump, server_updated_at).
 export function createFakeRemote() {
-  const tables = { accounts: new Map(), categories: new Map(), transactions: new Map(), audit_logs: new Map() };
+  const tables = { accounts: new Map(), categories: new Map(), transactions: new Map(), audit_logs: new Map(), people: new Map(), debts: new Map(), budgets: new Map() };
   let clock = Date.parse('2026-09-01T00:00:00Z');
   const tick = () => new Date((clock += 1000)).toISOString();
   const r = {

@@ -3,6 +3,8 @@ import { useAccounts, useCategories, useTrash } from '../hooks/useData.js';
 import { PageHeader, useConfirm, useToast } from '../components/ui.jsx';
 import { EmptyState } from '../components/Illustrations.jsx';
 import * as L from '../services/ledger.js';
+import * as D from '../services/debts.js';
+import { usePeople } from '../hooks/useData.js';
 import { formatMoney } from '../lib/money.js';
 import { friendlyDate } from '../lib/dates.js';
 
@@ -10,9 +12,10 @@ export default function Trash() {
   const items = useTrash();
   const accountsList = useAccounts();
   const cats = useCategories();
+  const people = usePeople();
   const confirm = useConfirm();
   const toast = useToast();
-  if (!items || !accountsList || !cats) return <div className="skeleton h-64" />;
+  if (!items || !accountsList || !cats || !people) return <div className="skeleton h-64" />;
   const accounts = new Map(accountsList.map((a) => [a.id, a]));
   // include trashed accounts for names
   items.filter((i) => i.kind === 'account').forEach((i) => accounts.set(i.item.id, i.item));
@@ -31,12 +34,12 @@ export default function Trash() {
         <div className="card p-1.5 sm:p-2">
           {items.map(({ kind, item }) => {
             const acc = accounts.get(item.account_id);
-            const title = kind === 'account' ? `Account: ${item.name}` : `${item.payee || (item.category_id ? cats.label(item.category_id) : item.type)} · ${formatMoney(item.amount, acc?.currency)}`;
-            const sub = kind === 'account' ? 'No transactions' : `${item.type} · ${acc?.name || ''} · ${friendlyDate(item.date)}`;
+            const title = kind === 'debt' ? `${item.direction === 'owed_to_me' ? 'Pautang kay' : 'Utang kay'} ${people.get(item.person_id)?.name || ''} · ${formatMoney(item.amount)}` : kind === 'account' ? `Account: ${item.name}` : `${item.payee || (item.category_id ? cats.label(item.category_id) : item.type)} · ${formatMoney(item.amount, acc?.currency)}`;
+            const sub = kind === 'debt' ? 'Includes its payments' : kind === 'account' ? 'No transactions' : `${item.type} · ${acc?.name || ''} · ${friendlyDate(item.date)}`;
             return (
               <div key={item.id} className="flex items-center gap-3 px-3 py-2.5">
                 <span className="flex-1 min-w-0"><span className="block font-medium truncate">{title}</span><span className="block text-[12.5px] muted truncate capitalize">{sub}</span></span>
-                <button className="btn-soft btn-sm" onClick={() => (kind === 'account' ? L.restoreAccount(item.id) : L.restoreTransaction(item.id)).then(() => toast('Restored'))}><RotateCcw size={15} /> Restore</button>
+                <button className="btn-soft btn-sm" onClick={() => (kind === 'debt' ? D.restoreDebt(item.id) : kind === 'account' ? L.restoreAccount(item.id) : L.restoreTransaction(item.id)).then(() => toast('Restored'))}><RotateCcw size={15} /> Restore</button>
                 {kind === 'transaction' && <button className="icon-btn text-loss" onClick={() => purge(item)} aria-label="Delete permanently"><Trash2 size={17} /></button>}
               </div>
             );

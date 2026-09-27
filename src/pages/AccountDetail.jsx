@@ -86,6 +86,7 @@ export default function AccountDetail() {
           <Row label="Transfers in" value={formatMoney(st.transferIn, cur, { sign: true })} />
           <Row label="Transfers out" value={formatMoney(-st.transferOut, cur)} />
           {(st.adjustIn > 0 || st.adjustOut > 0) && <Row label="Adjustments" value={formatMoney(st.adjustIn - st.adjustOut, cur, { sign: true })} />}
+          {(st.debtIn > 0 || st.debtOut > 0) && <Row label="Utang (lent, borrowed, repaid)" value={formatMoney(st.debtIn - st.debtOut, cur, { sign: true })} />}
           <Row label="Closing balance" value={formatMoney(st.closing, cur)} strong />
         </dl>
       </section>

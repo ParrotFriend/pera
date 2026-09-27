@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { LayoutDashboard, ReceiptText, Wallet, Tags, Trash2, History, Settings, Ellipsis, Plus, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, X } from 'lucide-react';
+import { LayoutDashboard, ReceiptText, Wallet, Tags, Trash2, History, Settings, Ellipsis, Plus, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, X, PieChart, HandCoins } from 'lucide-react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import SyncBadge from './SyncBadge.jsx';
 import TransactionForm from './TransactionForm.jsx';
@@ -10,6 +10,8 @@ const NAV = [
   ['/', 'Dashboard', LayoutDashboard],
   ['/transactions', 'Transactions', ReceiptText],
   ['/accounts', 'Accounts', Wallet],
+  ['/budgets', 'Budgets', PieChart],
+  ['/utang', 'Utang', HandCoins],
   ['/categories', 'Categories', Tags],
   ['/activity', 'Activity log', History],
   ['/trash', 'Trash', Trash2],
@@ -33,8 +35,11 @@ export default function Layout() {
   }, [params, setParams]);
   useEffect(() => setDial(false), [loc.pathname]);
 
+  const navigate = useNavigate();
   const open = (type, prefill = null) => { setDial(false); setForm({ type, prefill }); };
-  const ctx = { openAdd: open, openEdit: (tx) => setForm({ editing: tx }) };
+  // Loan/repayment rows are managed on the Utang screen, not in the generic editor.
+  const openEdit = (tx) => (tx.type === 'debt' ? navigate(`/utang?debt=${tx.debt_id}`) : setForm({ editing: tx }));
+  const ctx = { openAdd: open, openEdit };
 
   return (
     <div className="min-h-screen lg:flex">
@@ -64,16 +69,16 @@ export default function Layout() {
         </main>
       </div>
 
-      {/* Mobile bottom nav with center quick-add */}
+      {/* Mobile: floating quick-add + bottom nav (Dashboard, Transactions, Budget, Accounts, More) */}
+      <button onClick={() => setDial((d) => !d)} aria-expanded={dial} aria-label={dial ? 'Close quick add' : 'Quick add'}
+        className="lg:hidden fixed z-40 right-4 bottom-[calc(env(safe-area-inset-bottom)+5.25rem)] h-14 w-14 rounded-2xl bg-ink text-white dark:bg-white dark:text-ink shadow-lift flex items-center justify-center transition-transform active:scale-95">
+        {dial ? <X size={26} /> : <Plus size={28} />}
+      </button>
       <nav aria-label="Main" className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-night-card/95 backdrop-blur border-t border-ink-100/70 dark:border-night-line safe-bottom">
         <div className="grid grid-cols-5 items-end h-16 px-1">
-          {[NAV[0], NAV[1]].map(([to, label, I]) => <MobileTab key={to} to={to} label={to === '/' ? 'Home' : label} I={I} />)}
-          <div className="flex justify-center">
-            <button onClick={() => setDial((d) => !d)} aria-expanded={dial} aria-label={dial ? 'Close quick add' : 'Quick add'}
-              className="-mt-6 h-14 w-14 rounded-2xl bg-ink text-white dark:bg-white dark:text-ink shadow-lift flex items-center justify-center transition-transform active:scale-95">
-              {dial ? <X size={26} /> : <Plus size={28} />}
-            </button>
-          </div>
+          <MobileTab to="/" label="Home" I={LayoutDashboard} />
+          <MobileTab to="/transactions" label="Transactions" I={ReceiptText} />
+          <MobileTab to="/budgets" label="Budget" I={PieChart} />
           <MobileTab to="/accounts" label="Accounts" I={Wallet} />
           <MobileTab to="/more" label="More" I={Ellipsis} />
         </div>
@@ -81,10 +86,10 @@ export default function Layout() {
       {dial && (
         <div className="lg:hidden fixed inset-0 z-30" onClick={() => setDial(false)}>
           <div className="absolute inset-0 bg-ink-900/30 anim-fade" />
-          <div className="absolute bottom-24 inset-x-0 flex justify-center gap-3 anim-sheet" onClick={(e) => e.stopPropagation()}>
-            {[['expense', 'Expense', ArrowUpRight, 'bg-white text-ink'], ['income', 'Income', ArrowDownLeft, 'bg-gain text-white'], ['transfer', 'Transfer', ArrowLeftRight, 'bg-info text-white']].map(([t, l, I, c]) => (
-              <button key={t} onClick={() => open(t)} className={`flex flex-col items-center gap-1.5 rounded-2xl px-4 py-3 w-24 shadow-lift font-semibold text-sm ${c}`}>
-                <I size={22} aria-hidden /> {l}
+          <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+9.5rem)] right-4 flex flex-col items-end gap-2.5 anim-sheet" onClick={(e) => e.stopPropagation()}>
+            {[['transfer', 'Transfer', ArrowLeftRight, 'bg-info text-white'], ['income', 'Income', ArrowDownLeft, 'bg-gain text-white'], ['expense', 'Expense', ArrowUpRight, 'bg-white text-ink dark:bg-night-card dark:text-white']].map(([t, l, I, c]) => (
+              <button key={t} onClick={() => open(t)} className={`flex items-center gap-2 rounded-2xl pl-3.5 pr-4 h-12 shadow-lift font-semibold text-sm ${c}`}>
+                <I size={20} aria-hidden /> {l}
               </button>
             ))}
           </div>

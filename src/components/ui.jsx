@@ -71,7 +71,7 @@ export function ToastProvider({ children }) {
   const [items, setItems] = useState([]);
   const toast = useCallback((message, { tone = 'success', action, duration = 3500 } = {}) => {
     const id = Math.random().toString(36).slice(2);
-    setItems((x) => [...x, { id, message, tone, action }]);
+    setItems((x) => [...x.slice(-1), { id, message, tone, action }]); // at most 2 on screen
     setTimeout(() => setItems((x) => x.filter((t) => t.id !== id)), duration);
   }, []);
   const icons = { success: CircleCheck, error: TriangleAlert, info: Info };

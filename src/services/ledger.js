@@ -14,13 +14,13 @@ const listeners = new Set();
 export function setActor(a) { Object.assign(actor, a); }
 export function getActor() { return { ...actor }; }
 export function onLocalChange(fn) { listeners.add(fn); return () => listeners.delete(fn); }
-const notify = () => listeners.forEach((fn) => { try { fn(); } catch { /* ignore */ } });
+export const notify = () => listeners.forEach((fn) => { try { fn(); } catch { /* ignore */ } });
 
 export class ValidationError extends Error {
   constructor(fields) { super('Please fix the highlighted fields.'); this.fields = fields; }
 }
 
-function requireUser() {
+export function requireUser() {
   if (!actor.userId) throw new Error('No active user');
   return actor.userId;
 }
@@ -40,7 +40,7 @@ async function audit(userId, entity, entityId, action, summary) {
 }
 
 /** Put a record as a local change: pending sync + outbox + audit. Must run inside a db.transaction. */
-async function writeLocal(table, record, action, summary) {
+export async function writeLocal(table, record, action, summary) {
   const userId = record.user_id;
   const stamped = { ...record, updated_at: nowIso(), sync_status: 'pending' };
   await db[table].put(stamped);
@@ -49,11 +49,11 @@ async function writeLocal(table, record, action, summary) {
   return stamped;
 }
 
-const RW = ['accounts', 'categories', 'transactions', 'audit_logs', 'outbox'];
-const newBase = (userId) => { const ts = nowIso(); return { id: uuid(), user_id: userId, created_at: ts, updated_at: ts, deleted_at: null, version: 0 }; };
+export const RW = ['accounts', 'categories', 'transactions', 'audit_logs', 'outbox', 'budgets', 'people', 'debts'];
+export const newBase = (userId) => { const ts = nowIso(); return { id: uuid(), user_id: userId, created_at: ts, updated_at: ts, deleted_at: null, version: 0 }; };
 
 // ---- deterministic ids for default categories (no duplicates across devices) --------------
-async function stableId(seed) {
+export async function stableId(seed) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(seed));
   const h = [...new Uint8Array(buf)].slice(0, 16).map((x) => x.toString(16).padStart(2, '0')).join('');
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
@@ -243,7 +243,7 @@ export async function validateTransaction(input, existing = null) {
   if (Object.keys(f).length) throw new ValidationError(f);
 }
 
-function describeTx(t, accounts) {
+export function describeTx(t, accounts) {
   const name = (id) => accounts.get(id)?.name || 'account';
   const amt = formatMoney(t.amount, accounts.get(t.account_id)?.currency || actor.currency);
   switch (t.type) {
@@ -252,6 +252,7 @@ function describeTx(t, accounts) {
     case 'expense': return `Expense ${amt} from ${name(t.account_id)}${t.payee ? ` at ${t.payee}` : ''}`;
     case 'refund': return `Refund ${amt} to ${name(t.account_id)}`;
     case 'adjustment': return `Balance adjustment ${t.direction === 'out' ? '−' : '+'}${amt} on ${name(t.account_id)}`;
+    case 'debt': return `${t.debt_role === 'payment' ? 'Debt payment' : 'Loan'} ${t.direction === 'out' ? '−' : '+'}${amt} ${t.direction === 'out' ? 'from' : 'to'} ${name(t.account_id)}${t.payee ? ` (${t.payee})` : ''}`;
     default: return 'Transaction';
   }
 }
@@ -261,6 +262,7 @@ export async function saveTransaction(input, id = null) {
   const userId = requireUser();
   const existing = id ? await db.transactions.get(id) : null;
   if (id && (!existing || existing.user_id !== userId)) throw new Error('Transaction not found');
+  if (input.type === 'debt' || existing?.type === 'debt') throw new ValidationError({ type: 'Loans and repayments are managed in Utang.' });
   await validateTransaction(input, existing);
   const clean = {
     type: input.type,

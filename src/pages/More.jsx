@@ -6,7 +6,7 @@ import InstallCard from '../components/InstallCard.jsx';
 import { RefreshCw as SyncIcon } from 'lucide-react';
 
 export default function More() {
-  const items = NAV.slice(3);
+  const items = NAV.filter(([to]) => !['/', '/transactions', '/budgets', '/accounts'].includes(to));
   return (
     <div>
       <PageHeader title="More" />

@@ -5,6 +5,8 @@ import { IconTile } from './Icon.jsx';
 import { useAccounts, useBalances, useCategories } from '../hooks/useData.js';
 import { useApp } from '../services/app.jsx';
 import * as L from '../services/ledger.js';
+import { budgetAlertsFor } from '../services/budgets.js';
+import { budgetMessage } from '../services/calc.js';
 import { toLocalDate, toLocalTime, addDays } from '../lib/dates.js';
 import { formatMoney } from '../lib/money.js';
 
@@ -71,8 +73,10 @@ export default function TransactionForm({ open, onClose, initialType = 'expense'
     try {
       const tags = f.tagsText.split(/[\s,]+/).filter(Boolean);
       const input = { ...f, tags, category_id: f.category_id || null, to_account_id: f.to_account_id || null };
-      await L.saveTransaction(input, editing?.id || null);
+      const saved = await L.saveTransaction(input, editing?.id || null);
       const label = TYPE_LABEL[f.type];
+      budgetAlertsFor(saved).then((alerts) => alerts.forEach(({ budget, status }) =>
+        toast(budgetMessage(budget, status, (v) => formatMoney(v, currency)), { tone: status.level === 'warning' ? 'info' : 'error', duration: 6000 }))).catch(() => {});
       toast(online || user?.local ? `${label} ${editing ? 'updated' : 'saved'}` : "You're offline. Saved on this device — it will sync automatically.", { tone: online || user?.local ? 'success' : 'info', duration: online ? 2500 : 5000 });
       if (again) {
         setF((x) => ({ ...blank(x.type), account_id: x.account_id, date: x.date }));

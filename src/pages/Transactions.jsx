@@ -13,7 +13,7 @@ import { formatMoney, parseMoney, toPlain } from '../lib/money.js';
 import { exportTransactionsCsv } from '../services/exporter.js';
 
 const PAGE = 60;
-const TYPES = [['all', 'All'], ['expense', 'Expenses'], ['income', 'Income'], ['transfer', 'Transfers']];
+const TYPES = [['all', 'All'], ['expense', 'Expenses'], ['income', 'Income'], ['transfer', 'Transfers'], ['debt', 'Utang']];
 const SORTS = [['newest', 'Newest'], ['oldest', 'Oldest'], ['high', 'Highest amount'], ['low', 'Lowest amount']];
 
 export default function Transactions() {

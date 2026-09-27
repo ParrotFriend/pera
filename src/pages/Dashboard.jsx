@@ -11,6 +11,8 @@ import { Donut, DailyBars, ShareBar } from '../components/Charts.jsx';
 import TransactionItem from '../components/TransactionItem.jsx';
 import { EmptyState } from '../components/Illustrations.jsx';
 import { IconTile } from '../components/Icon.jsx';
+import { useBudgetStatuses, BudgetCard } from './Budgets.jsx';
+import { debtTotals } from '../services/calc.js';
 
 export default function Dashboard() {
   const { currency } = useApp();
@@ -23,6 +25,7 @@ export default function Dashboard() {
   // Compare like with like: the 1st to today's day-of-month in the previous month.
   const lastSame = { from: last.from, to: `${last.from.slice(0, 8)}${today.slice(8)}` > last.to ? last.to : `${last.from.slice(0, 8)}${today.slice(8)}` };
 
+  const budgets = useBudgetStatuses();
   const view = useMemo(() => {
     if (!data || !cats) return null;
     const { accounts, txs, balances, totals } = data;
@@ -50,8 +53,13 @@ export default function Dashboard() {
     if (largest) insights.push(`Your largest expense this month was ${formatMoney(largest.amount, accMap.get(largest.account_id)?.currency || currency)}${largest.payee ? ` at ${largest.payee}` : ''} ${/^(Today|Yesterday)$/.test(friendlyDate(largest.date)) ? friendlyDate(largest.date).toLowerCase() : 'on ' + friendlyDate(largest.date)}.`);
     if (cur.income > 0) insights.push(`You kept ${percent(Math.max(0, cur.net), cur.income)}% of this month's income so far.`);
 
-    return { accounts, accMap, totals, cur, prev, assetParts, catSegments, recent, lowBalance, insights, series: dailySeries(txs, month.from, month.to), hasTx: txs.length > 0 };
-  }, [data, cats, month.from, month.to, lastSame.from, lastSame.to, currency]);
+    const debt = debtTotals(data.debts, txs, today);
+    const overall = budgets?.find((x) => x.budget.scope === 'overall' && x.budget.period === 'monthly');
+    if (overall) insights.push(`You have ${formatMoney(Math.max(0, overall.st.remaining), currency)} remaining in your monthly budget.`);
+    const hot = budgets?.filter((x) => x.st.level !== 'ok').length || 0;
+    if (hot) insights.push(`${hot} budget${hot > 1 ? 's are' : ' is'} at or near the limit.`);
+    return { debt, accounts, accMap, totals, cur, prev, assetParts, catSegments, recent, lowBalance, insights, series: dailySeries(txs, month.from, month.to), hasTx: txs.length > 0 };
+  }, [data, cats, budgets, month.from, month.to, lastSame.from, lastSame.to, currency]);
 
   if (!view) return <DashboardSkeleton />;
   const { totals, cur, prev } = view;
@@ -71,7 +79,7 @@ export default function Dashboard() {
         </div>
       ))}
 
-      <div className="grid gap-5 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-5">
         {/* Hero: how much, and where it is */}
         <section className="lg:col-span-3 rounded-3xl bg-ink text-white p-5 sm:p-7 relative overflow-hidden dark:bg-[#18214A]" aria-label="Total balance">
           <div className="absolute -right-10 -top-16 h-56 w-56 rounded-full bg-white/[0.04]" aria-hidden />
@@ -91,9 +99,10 @@ export default function Dashboard() {
               </li>
             ))}
           </ul>
-          {totals.liabilities > 0 && (
+          {(totals.liabilities > 0 || totals.receivable > 0 || totals.payable > 0) && (
             <div className="mt-5 pt-4 border-t border-white/10 flex flex-wrap gap-x-6 gap-y-1 text-sm">
-              <span className="text-white/60">You owe <span className="money text-white">{formatMoney(totals.liabilities, currency)}</span></span>
+              {totals.receivable > 0 && <span className="text-white/60">Owed to you <span className="money text-white">{formatMoney(totals.receivable, currency)}</span></span>}
+              {(totals.liabilities + totals.payable) > 0 && <span className="text-white/60">You owe <span className="money text-white">{formatMoney(totals.liabilities + totals.payable, currency)}</span></span>}
               <span className="text-white/60">Net worth <span className="money text-white">{formatMoney(totals.netWorth, currency)}</span></span>
             </div>
           )}
@@ -125,7 +134,7 @@ export default function Dashboard() {
             action={<button className="btn-primary" onClick={() => openAdd('expense')}><Plus size={18} /> Add transaction</button>} />
         </div>
       ) : (
-        <div className="grid gap-5 lg:grid-cols-5">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-5">
           <section className="card p-5 lg:col-span-2" aria-labelledby="spend-h">
             <h2 id="spend-h" className="text-base font-semibold">Where your money went</h2>
             <p className="text-[12.5px] muted">This month, after refunds</p>
@@ -157,6 +166,33 @@ export default function Dashboard() {
           </section>
         </div>
       )}
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-5">
+        <section className="card p-5 lg:col-span-3" aria-labelledby="bud-h">
+          <div className="flex items-center justify-between">
+            <h2 id="bud-h" className="text-base font-semibold">Budgets</h2>
+            <Link to="/budgets" className="text-sm font-medium muted hover:text-ink dark:hover:text-white inline-flex items-center">{budgets?.length ? 'All budgets' : 'Set a budget'} <ChevronRight size={16} /></Link>
+          </div>
+          {budgets?.length ? (
+            <div className="divide-y divide-ink-100/70 dark:divide-night-line mt-1">
+              {budgets.slice(0, 4).map(({ budget, st }) => <Link key={budget.id} to="/budgets" className="block"><BudgetCard compact budget={budget} st={st} cats={cats} currency={currency} /></Link>)}
+            </div>
+          ) : <p className="text-sm muted mt-2">Set a monthly limit for everything or for categories like Food, and Pera will warn you before you go over.</p>}
+        </section>
+        <section className="card p-5 lg:col-span-2" aria-labelledby="utang-h">
+          <div className="flex items-center justify-between">
+            <h2 id="utang-h" className="text-base font-semibold">Utang</h2>
+            <Link to="/utang" className="text-sm font-medium muted hover:text-ink dark:hover:text-white inline-flex items-center">Open <ChevronRight size={16} /></Link>
+          </div>
+          {view.debt.receivable || view.debt.payable ? (
+            <dl className="mt-3 space-y-3">
+              <div className="flex justify-between items-baseline"><dt className="text-sm muted">May utang sa iyo{view.debt.peopleOwing ? ` · ${view.debt.peopleOwing} tao` : ''}</dt><dd className="money text-lg font-semibold amount-in">{formatMoney(view.debt.receivable, currency)}</dd></div>
+              <div className="flex justify-between items-baseline"><dt className="text-sm muted">Utang mo</dt><dd className="money text-lg font-semibold">{formatMoney(view.debt.payable, currency)}</dd></div>
+              {view.debt.overdue > 0 && <p className="text-sm text-loss dark:text-loss-dark font-medium">{view.debt.overdue} overdue — check Utang.</p>}
+            </dl>
+          ) : <p className="text-sm muted mt-2">Record money you lend or borrow and track partial payments.</p>}
+        </section>
+      </div>
 
       {view.insights.length > 0 && (
         <section className="card p-5" aria-labelledby="ins-h">
@@ -192,7 +228,7 @@ function DashboardSkeleton() {
   return (
     <div className="space-y-5" aria-busy="true" aria-label="Loading">
       <div className="skeleton h-8 w-40" />
-      <div className="grid gap-5 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-5">
         <div className="skeleton h-64 lg:col-span-3 rounded-3xl" />
         <div className="skeleton h-64 lg:col-span-2 rounded-3xl" />
       </div>

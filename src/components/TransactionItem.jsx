@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Scale, Undo2 } from 'lucide-react';
+import { ArrowLeftRight, Scale, Undo2, HandCoins } from 'lucide-react';
 import { IconTile } from './Icon.jsx';
 import { formatMoney } from '../lib/money.js';
 import { useApp } from '../services/app.jsx';
@@ -27,6 +27,17 @@ export default function TransactionItem({ tx, accounts, cats, onClick, focusAcco
       tone = 'muted';
       tile = <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-warn-soft text-warn dark:bg-warn/15"><Scale size={18} aria-hidden /></span>;
       break;
+    case 'debt': {
+      const payment = tx.debt_role === 'payment';
+      const out = tx.direction === 'out';
+      // out+principal = you lent; in+principal = you borrowed; in+payment = they paid you; out+payment = you paid
+      title = payment ? (out ? `Bayad kay ${tx.payee}` : `Bayad ni ${tx.payee}`) : (out ? `Pautang kay ${tx.payee}` : `Utang kay ${tx.payee}`);
+      sub = `Utang · ${acc?.name || ''}`;
+      amount = out ? -tx.amount : tx.amount;
+      tone = out ? 'amount-out' : 'amount-in';
+      tile = <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-ink-50 text-ink-600 dark:bg-night-line dark:text-slate-300"><HandCoins size={18} aria-hidden /></span>;
+      break;
+    }
     case 'refund':
       title = tx.payee || 'Refund';
       sub = `Refund${tx.category_id ? ` · ${cats.label(tx.category_id)}` : ''} · ${acc?.name || ''}`;
