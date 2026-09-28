@@ -78,7 +78,7 @@ export function ToastProvider({ children }) {
   return (
     <ToastCtx.Provider value={toast}>
       {children}
-      <div className="fixed z-[60] left-1/2 -translate-x-1/2 bottom-24 lg:bottom-auto lg:top-6 w-[min(92vw,420px)] space-y-2" role="status" aria-live="polite">
+      <div className="fixed z-[60] left-1/2 -translate-x-1/2 top-[calc(env(safe-area-inset-top)+4rem)] lg:top-6 w-[min(92vw,420px)] space-y-2" role="status" aria-live="polite">
         {items.map((t) => {
           const I = icons[t.tone] || Info;
           return (

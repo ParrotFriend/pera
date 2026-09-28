@@ -12,6 +12,7 @@ import TransactionItem from '../components/TransactionItem.jsx';
 import { EmptyState } from '../components/Illustrations.jsx';
 import { IconTile } from '../components/Icon.jsx';
 import { useBudgetStatuses, BudgetCard } from './Budgets.jsx';
+import { UpcomingBillsCard } from './Bills.jsx';
 import { debtTotals } from '../services/calc.js';
 
 export default function Dashboard() {
@@ -193,6 +194,8 @@ export default function Dashboard() {
           ) : <p className="text-sm muted mt-2">Record money you lend or borrow and track partial payments.</p>}
         </section>
       </div>
+
+      <UpcomingBillsCard />
 
       {view.insights.length > 0 && (
         <section className="card p-5" aria-labelledby="ins-h">

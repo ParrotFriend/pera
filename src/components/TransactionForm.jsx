@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeftRight, Trash2 } from 'lucide-react';
+import { ArrowLeftRight, Trash2, Repeat } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Sheet, Field, MoneyInput, Segmented, useToast, useConfirm } from './ui.jsx';
 import { IconTile } from './Icon.jsx';
 import { useAccounts, useBalances, useCategories } from '../hooks/useData.js';
@@ -29,6 +30,7 @@ export default function TransactionForm({ open, onClose, initialType = 'expense'
   const [recent, setRecent] = useState([]);
   const pickedCategory = useRef(false);
   const amountRef = useRef(null);
+  const navigate = useNavigate();
 
   // Initialise each time the sheet opens.
   useEffect(() => {
@@ -105,6 +107,9 @@ export default function TransactionForm({ open, onClose, initialType = 'expense'
       footer={
         <div className="flex gap-2">
           {editing && <button className="icon-btn text-loss" onClick={remove} aria-label="Delete transaction"><Trash2 size={20} /></button>}
+          {editing && !editing.schedule_id && ['expense', 'income', 'transfer'].includes(editing.type) && (
+            <button className="icon-btn" onClick={() => { onClose(); navigate(`/bills?from=${editing.id}`); }} aria-label="Ulitin ito (make recurring)" title="Ulitin ito"><Repeat size={20} /></button>
+          )}
           {!editing && <button className="btn-soft flex-1" disabled={busy} onClick={() => submit(true)}>Save & add another</button>}
           <button className={`${f.type === 'income' ? 'btn-gain' : 'btn-primary'} flex-1`} disabled={busy} onClick={() => submit(false)}>
             {editing ? 'Save changes' : `Save ${TYPE_LABEL[f.type].toLowerCase()}`}

@@ -11,7 +11,7 @@ import { db, SERVER_COLUMNS, SYNCED_TABLES, getMeta, setMeta } from '../db/db.js
 import { nowIso } from '../lib/id.js';
 import { payeeKey } from './ledger.js';
 
-const TABLE_ORDER = { accounts: 0, categories: 1, people: 2, debts: 3, budgets: 4, transactions: 5, audit_logs: 6 }; // parents before children
+const TABLE_ORDER = { accounts: 0, categories: 1, people: 2, debts: 3, budgets: 4, schedules: 5, transactions: 6, audit_logs: 7 }; // parents before children
 const COMPARE_IGNORE = new Set(['version', 'updated_at', 'created_at', 'server_updated_at']);
 const MAX_BACKOFF = 10 * 60 * 1000;
 

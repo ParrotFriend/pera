@@ -5,8 +5,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Onest Variable"', 'system-ui', 'sans-serif'],
-        display: ['"Bricolage Grotesque Variable"', '"Onest Variable"', 'system-ui', 'sans-serif']
+        sans: ['PesoSign', '"Onest Variable"', 'system-ui', 'sans-serif'],
+        display: ['"Bricolage Grotesque Variable"', 'PesoSign', '"Onest Variable"', 'system-ui', 'sans-serif']
       },
       colors: {
         ink: { DEFAULT: '#141B3C', 50: '#EEF0F8', 100: '#DCE0F0', 200: '#B7BEE0', 400: '#5B66A8', 600: '#2A3370', 700: '#1E2654', 800: '#141B3C', 900: '#0C1128' },

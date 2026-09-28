@@ -2,6 +2,14 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import '@fontsource-variable/onest';
 import '@fontsource-variable/bricolage-grotesque';
+import pesoFontUrl from '@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-ext-wght-normal.woff2?url';
+
+// Onest has no ₱ glyph and some phones' system fonts don't either, so ₱ always comes from a bundled font.
+try {
+  const peso = new FontFace('PesoSign', `url(${pesoFontUrl}) format('woff2')`, { unicodeRange: 'U+20B1', weight: '100 900' });
+  document.fonts.add(peso);
+  peso.load().catch(() => {});
+} catch { /* very old browser: falls back to system fonts */ }
 import './styles/index.css';
 import App from './App.jsx';
 

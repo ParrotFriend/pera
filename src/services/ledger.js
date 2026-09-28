@@ -49,7 +49,7 @@ export async function writeLocal(table, record, action, summary) {
   return stamped;
 }
 
-export const RW = ['accounts', 'categories', 'transactions', 'audit_logs', 'outbox', 'budgets', 'people', 'debts'];
+export const RW = ['accounts', 'categories', 'transactions', 'audit_logs', 'outbox', 'budgets', 'people', 'debts', 'schedules'];
 export const newBase = (userId) => { const ts = nowIso(); return { id: uuid(), user_id: userId, created_at: ts, updated_at: ts, deleted_at: null, version: 0 }; };
 
 // ---- deterministic ids for default categories (no duplicates across devices) --------------

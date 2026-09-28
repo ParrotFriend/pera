@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { LayoutDashboard, ReceiptText, Wallet, Tags, Trash2, History, Settings, Ellipsis, Plus, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, X, PieChart, HandCoins } from 'lucide-react';
+import { LayoutDashboard, ReceiptText, Wallet, Tags, Trash2, History, Settings, Ellipsis, Plus, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, X, PieChart, HandCoins, CalendarClock } from 'lucide-react';
+import { useToast } from './ui.jsx';
+import { runSchedules } from '../services/schedules.js';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import SyncBadge from './SyncBadge.jsx';
 import TransactionForm from './TransactionForm.jsx';
@@ -12,6 +14,7 @@ const NAV = [
   ['/accounts', 'Accounts', Wallet],
   ['/budgets', 'Budgets', PieChart],
   ['/utang', 'Utang', HandCoins],
+  ['/bills', 'Bills', CalendarClock],
   ['/categories', 'Categories', Tags],
   ['/activity', 'Activity log', History],
   ['/trash', 'Trash', Trash2],
@@ -34,6 +37,17 @@ export default function Layout() {
     }
   }, [params, setParams]);
   useEffect(() => setDial(false), [loc.pathname]);
+
+  // Recurring automation: record due items when the app opens, when it comes back to the screen, and hourly.
+  const toast = useToast();
+  useEffect(() => {
+    const run = () => runSchedules().then((n) => { if (n) toast(`${n} recurring transaction${n > 1 ? 's' : ''} recorded`); }).catch(() => {});
+    run();
+    const onVisible = () => { if (document.visibilityState === 'visible') run(); };
+    document.addEventListener('visibilitychange', onVisible);
+    const timer = setInterval(run, 60 * 60 * 1000);
+    return () => { document.removeEventListener('visibilitychange', onVisible); clearInterval(timer); };
+  }, [toast]);
 
   const navigate = useNavigate();
   const open = (type, prefill = null) => { setDial(false); setForm({ type, prefill }); };

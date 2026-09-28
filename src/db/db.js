@@ -27,8 +27,15 @@ db.version(2).stores({
   debts: 'id, user_id, [user_id+person_id], sync_status'
 });
 
-// Parents first: a debt needs its person, a transaction may need its debt.
-export const SYNCED_TABLES = ['accounts', 'categories', 'people', 'debts', 'budgets', 'transactions', 'audit_logs'];
+// v3 (Phase 2 batch 2): bills + recurring schedules.
+db.version(3).stores({
+  schedules: 'id, user_id, sync_status',
+  transactions:
+    'id, user_id, [user_id+date], [user_id+account_id], [user_id+to_account_id], [user_id+category_id], [user_id+payee_key], [user_id+debt_id], [user_id+schedule_id], deleted_at, sync_status'
+});
+
+// Parents first: a debt needs its person, a transaction may need its debt or schedule.
+export const SYNCED_TABLES = ['accounts', 'categories', 'people', 'debts', 'budgets', 'schedules', 'transactions', 'audit_logs'];
 
 // Columns we send to the server per table (local-only fields like sync_status are stripped).
 export const SERVER_COLUMNS = {
@@ -37,7 +44,8 @@ export const SERVER_COLUMNS = {
   people: ['id', 'user_id', 'name', 'phone', 'notes', 'created_at', 'updated_at', 'deleted_at', 'version'],
   debts: ['id', 'user_id', 'person_id', 'direction', 'amount', 'date', 'due_date', 'account_id', 'notes', 'forgiven_amount', 'forgiven_at', 'created_at', 'updated_at', 'deleted_at', 'version'],
   budgets: ['id', 'user_id', 'name', 'scope', 'category_ids', 'amount', 'period', 'start_date', 'end_date', 'rollover', 'alert_at', 'archived_at', 'created_at', 'updated_at', 'deleted_at', 'version'],
-  transactions: ['id', 'user_id', 'type', 'amount', 'account_id', 'to_account_id', 'category_id', 'direction', 'refund_of', 'debt_id', 'debt_role', 'date', 'time', 'payee', 'notes', 'tags', 'created_by', 'created_at', 'updated_at', 'deleted_at', 'purged_at', 'version'],
+  schedules: ['id', 'user_id', 'kind', 'name', 'type', 'amount', 'variable_amount', 'account_id', 'to_account_id', 'category_id', 'payee', 'notes', 'frequency', 'interval', 'interval_unit', 'start_date', 'end_date', 'max_count', 'effective_from', 'auto', 'skipped', 'paused_at', 'created_at', 'updated_at', 'deleted_at', 'version'],
+  transactions: ['id', 'user_id', 'type', 'amount', 'account_id', 'to_account_id', 'category_id', 'direction', 'refund_of', 'debt_id', 'debt_role', 'schedule_id', 'occurrence_date', 'date', 'time', 'payee', 'notes', 'tags', 'created_by', 'created_at', 'updated_at', 'deleted_at', 'purged_at', 'version'],
   audit_logs: ['id', 'user_id', 'entity', 'entity_id', 'action', 'summary', 'device', 'at', 'created_at', 'updated_at', 'deleted_at', 'version']
 };
 
