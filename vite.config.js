@@ -34,7 +34,8 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/auth\/v1/, /^\/rest\/v1/],
-        cleanupOutdatedCaches: true,
+                cleanupOutdatedCaches: true,
+        importScripts: ['push-sw.js'], // push notification handlers (public/push-sw.js)
         // Never cache Supabase API responses — financial data lives in IndexedDB, not the HTTP cache.
         runtimeCaching: []
       },

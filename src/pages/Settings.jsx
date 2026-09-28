@@ -4,6 +4,8 @@ import { Moon, Sun, Monitor, LogOut, Download, Upload, ShieldCheck } from 'lucid
 import { useApp } from '../services/app.jsx';
 import { PageHeader, Segmented, Field, Sheet, useToast } from '../components/ui.jsx';
 import InstallCard from '../components/InstallCard.jsx';
+import NotificationSettings from '../components/NotificationSettings.jsx';
+import { turnOffThisDevice } from '../services/push.js';
 import { CURRENCIES } from '../lib/money.js';
 import { createBackup, readBackup, restoreBackup } from '../services/exporter.js';
 import { supabase } from '../services/remote.js';
@@ -36,6 +38,7 @@ export default function Settings() {
   }
   async function logout() {
     if (sync.pending > 0 && !confirm(`${sync.pending} change(s) have not synced yet. They stay on this device and will sync next time you sign in here. Sign out anyway?`)) return;
+    await turnOffThisDevice().catch(() => {}); // don't show your reminders to the next person using this device
     await signOut();
   }
 
@@ -57,7 +60,9 @@ export default function Settings() {
               {Object.values(CURRENCIES).map((c) => <option key={c.code} value={c.code}>{c.symbol} {c.code} — {c.name}</option>)}
             </select>
           </Field>
-        </Section>
+        </Section>  
+
+        <Section title="Notifications"><NotificationSettings /></Section>
 
         <Section title="Install app"><InstallCard /></Section>
 

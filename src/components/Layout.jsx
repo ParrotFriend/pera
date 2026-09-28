@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { LayoutDashboard, ReceiptText, Wallet, Tags, Trash2, History, Settings, Ellipsis, Plus, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, X, PieChart, HandCoins, CalendarClock } from 'lucide-react';
+import { LayoutDashboard, ReceiptText, Wallet, Tags, Trash2, History, Settings, Ellipsis, Plus, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, X, PieChart, HandCoins, CalendarClock, ChartColumn } from 'lucide-react';
 import { useToast } from './ui.jsx';
 import { runSchedules } from '../services/schedules.js';
 import { useRegisterSW } from 'virtual:pwa-register/react';
@@ -15,6 +15,7 @@ const NAV = [
   ['/budgets', 'Budgets', PieChart],
   ['/utang', 'Utang', HandCoins],
   ['/bills', 'Bills', CalendarClock],
+  ['/reports', 'Reports', ChartColumn],
   ['/categories', 'Categories', Tags],
   ['/activity', 'Activity log', History],
   ['/trash', 'Trash', Trash2],

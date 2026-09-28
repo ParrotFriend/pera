@@ -13,6 +13,7 @@ const Categories = lazy(() => import('./pages/Categories.jsx'));
 const Budgets = lazy(() => import('./pages/Budgets.jsx'));
 const Debts = lazy(() => import('./pages/Debts.jsx'));
 const Bills = lazy(() => import('./pages/Bills.jsx'));
+const Reports = lazy(() => import('./pages/Reports.jsx'));
 const Trash = lazy(() => import('./pages/Trash.jsx'));
 const Activity = lazy(() => import('./pages/Activity.jsx'));
 const Settings = lazy(() => import('./pages/Settings.jsx'));
@@ -37,6 +38,7 @@ function Gate() {
           <Route path="budgets" element={<Budgets />} />
           <Route path="utang" element={<Debts />} />
           <Route path="bills" element={<Bills />} />
+          <Route path="reports" element={<Reports />} />
           <Route path="categories" element={<Categories />} />
           <Route path="trash" element={<Trash />} />
           <Route path="activity" element={<Activity />} />
