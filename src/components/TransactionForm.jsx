@@ -52,6 +52,15 @@ export default function TransactionForm({ open, onClose, initialType = 'expense'
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editing?.id, initialType]);
 
+  // The account list may finish loading after the form opens (e.g. app shortcut): pick a default then.
+  useEffect(() => {
+    if (!open || editing || f.account_id || !accounts.length) return;
+    L.lastUsedAccount(f.type).then((id) => {
+      const pick = id && accounts.some((a) => a.id === id) ? id : accounts[0].id;
+      setF((x) => (x.account_id ? x : { ...x, account_id: pick }));
+    });
+  }, [open, editing, f.account_id, f.type, accounts]);
+
   useEffect(() => {
     if (!open || !user || !['expense', 'income'].includes(f.type)) return setRecent([]);
     L.recentPayees(f.type).then(setRecent);

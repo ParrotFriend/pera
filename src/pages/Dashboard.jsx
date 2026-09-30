@@ -119,12 +119,20 @@ export default function Dashboard() {
               <span className="text-sm muted">Net cash flow this month</span>
               <span className={`money text-xl font-semibold ${cur.net >= 0 ? 'amount-in' : 'text-loss'}`}>{formatMoney(cur.net, currency, { sign: true })}</span>
             </div>
-            <p className="text-[12.5px] muted mt-1">{cur.net >= 0 ? 'You earned more than you spent.' : 'You spent more than you earned.'} Transfers are not included.</p>
-            <div className="mt-3"><DailyBars series={view.series} from={month.from} to={month.to} currency={currency} height={72} /></div>
-            <div className="flex gap-4 mt-2 text-[12px] muted">
-              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-gain" />Income</span>
-              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-ink dark:bg-slate-300" />Expenses</span>
-            </div>
+            <p className="text-[13px] mt-1">
+              {cur.net >= 0
+                ? <>You kept <strong className="money">{formatMoney(cur.net, currency)}</strong> of what you earned this month.</>
+                : <>You spent <strong className="money">{formatMoney(-cur.net, currency)}</strong> more than you earned this month.</>}
+            </p>
+            {[['Money in · income', cur.income, 'bg-gain'], ['Money out · expenses', cur.expenses, 'bg-loss']].map(([label, value, color]) => (
+              <div key={label} className="mt-3">
+                <div className="flex justify-between text-[13px]"><span className="muted">{label}</span><span className="money font-medium">{formatMoney(value, currency)}</span></div>
+                <div className="mt-1 h-2.5 rounded-full bg-ink-50 dark:bg-night-line overflow-hidden">
+                  <div className={`h-full rounded-full ${color}`} style={{ width: `${(value * 100) / Math.max(cur.income, cur.expenses, 1)}%` }} />
+                </div>
+              </div>
+            ))}
+            <p className="text-[12px] muted mt-3">Transfers between your own accounts are not counted. <Link to="/reports" className="underline underline-offset-2">Daily chart in Reports</Link></p>
           </div>
         </section>
       </div>

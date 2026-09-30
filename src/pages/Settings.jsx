@@ -6,6 +6,8 @@ import { PageHeader, Segmented, Field, Sheet, useToast } from '../components/ui.
 import InstallCard from '../components/InstallCard.jsx';
 import NotificationSettings from '../components/NotificationSettings.jsx';
 import { turnOffThisDevice } from '../services/push.js';
+import PasswordField, { ConfirmPasswordField, passwordProblems, problemText } from '../components/PasswordField.jsx';
+import { PrivacySheet } from '../components/PrivacyPolicy.jsx';
 import { CURRENCIES } from '../lib/money.js';
 import { createBackup, readBackup, restoreBackup } from '../services/exporter.js';
 import { supabase } from '../services/remote.js';
@@ -81,9 +83,7 @@ export default function Settings() {
           </div>
         </Section>
 
-        <Section title="Privacy">
-          <p className="text-sm muted flex gap-2"><ShieldCheck size={18} className="shrink-0 text-gain" /> Your records are stored on this device and, when signed in, in your own private cloud database protected by row-level security. Pera has no ads, no analytics and sends your financial data to no third party.</p>
-        </Section>
+        <Section title="Privacy"><PrivacySection /></Section>
 
         {!user?.local && <button className="btn-ghost text-loss" onClick={logout}><LogOut size={18} /> Sign out</button>}
       </div>
@@ -113,20 +113,47 @@ function Section({ title, children }) {
 function PasswordChange() {
   const [open, setOpen] = useState(false);
   const [pw, setPw] = useState('');
-  const [err, setErr] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [err, setErr] = useState({});
+  const [busy, setBusy] = useState(false);
   const toast = useToast();
+  const close = () => { setOpen(false); setPw(''); setConfirm(''); setErr({}); };
   async function save() {
-    if (pw.length < 8) return setErr('Use at least 8 characters.');
+    const f = {};
+    const problems = passwordProblems(pw);
+    if (problems.length) f.pw = problemText(problems);
+    if (!confirm) f.confirm = 'Type the password again.';
+    else if (confirm !== pw) f.confirm = 'The two passwords don’t match.';
+    setErr(f);
+    if (Object.keys(f).length) return;
+    if (!navigator.onLine) return setErr({ pw: 'You need to be online to change your password.' });
+    setBusy(true);
     const { error } = await supabase.auth.updateUser({ password: pw });
-    if (error) return setErr(navigator.onLine ? 'Could not change the password. Try again.' : 'You need to be online to change your password.');
-    toast('Password changed'); setOpen(false); setPw('');
+    setBusy(false);
+    if (error) return setErr({ pw: /same|different/i.test(error.message) ? 'Use a password different from your current one.' : /weak|should contain/i.test(error.message) ? 'That password is too weak. Follow the checklist.' : 'Could not change the password. Try again.' });
+    toast('Password changed');
+    close();
   }
   return (
     <>
       <button className="btn-soft btn-sm" onClick={() => setOpen(true)}>Change password</button>
-      <Sheet open={open} onClose={() => setOpen(false)} title="Change password" footer={<button className="btn-primary w-full" onClick={save}>Change password</button>}>
-        <Field label="New password" htmlFor="npw" error={err}><input id="npw" data-autofocus type="password" autoComplete="new-password" className="input" value={pw} onChange={(e) => { setPw(e.target.value); setErr(''); }} /></Field>
+      <Sheet open={open} onClose={close} title="Change password" footer={<button className="btn-primary w-full" disabled={busy} onClick={save}>Change password</button>}>
+        <div className="space-y-5">
+          <PasswordField id="npw" label="New password" value={pw} onChange={(v) => { setPw(v); setErr({}); }} autoComplete="new-password" error={err.pw} showRules autoFocus />
+          <ConfirmPasswordField id="npw2" value={confirm} onChange={(v) => { setConfirm(v); setErr((e) => ({ ...e, confirm: undefined })); }} original={pw} error={err.confirm} />
+        </div>
       </Sheet>
+    </>
+  );
+}
+
+function PrivacySection() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <p className="text-sm muted flex gap-2"><ShieldCheck size={18} className="shrink-0 text-gain" /> Your records are stored on this device and, when signed in, in your own private cloud database where only you can read them. Pera has no ads and no analytics, and never sells your data.</p>
+      <button className="btn-soft btn-sm" onClick={() => setOpen(true)}>Read the Privacy Policy</button>
+      <PrivacySheet open={open} onClose={() => setOpen(false)} />
     </>
   );
 }
